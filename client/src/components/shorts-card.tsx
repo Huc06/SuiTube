@@ -8,7 +8,7 @@ export interface Video {
   thumbnailUrl?: string;
   duration?: string | number;
   views?: number;
-  // Thêm các trường khác nếu cần
+  // Add other fields if needed
 }
 
 interface ShortsCardProps {
@@ -56,7 +56,7 @@ export default function ShortsCard({ video, onClick }: ShortsCardProps) {
 
 export async function getTuskyFilesByVault(vaultId: string): Promise<Video[]> {
   const TUSKY_API_URL = "https://api.tusky.io";
-  const TUSKY_API_KEY = "abad7807-d55e-49f3-af26-2edc3349ec5f"; // Thay bằng apiKey của bạn
+  const TUSKY_API_KEY = "abad7807-d55e-49f3-af26-2edc3349ec5f"; // Replace with your apiKey
 
   const response = await fetch(`${TUSKY_API_URL}/files?vaultId=${vaultId}`, {
     headers: {
@@ -65,13 +65,13 @@ export async function getTuskyFilesByVault(vaultId: string): Promise<Video[]> {
   });
   if (!response.ok) throw new Error("Tusky GET files failed");
   const data = await response.json();
-  // data.items là mảng file, bạn cần map sang Video nếu cần
+  // data.items is an array of files, you need to map to Video if needed
   return data.items.map((item: any) => ({
     id: item.id,
     title: item.name,
-    thumbnailUrl: "", // Nếu có trường thumbnail thì lấy, không thì để rỗng
-    duration: "",     // Nếu có trường duration thì lấy, không thì để rỗng
-    views: 0,         // Nếu có trường views thì lấy, không thì để 0
+    thumbnailUrl: "", // If there is a thumbnail field, use it, otherwise leave empty
+    duration: "",     // If there is a duration field, use it, otherwise leave empty
+    views: 0,         // If there is a views field, use it, otherwise set to 0
   }));
 }
 
