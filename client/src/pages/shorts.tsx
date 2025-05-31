@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Heart, MessageCircle, Share, Coins } from "lucide-react";
 import { useLocation } from "wouter";
 import { mockShorts, mockUsers } from "@/lib/mock-data";
-import type { Video, User } from "@shared/schema";
+import SavedVideos from "@/components/Saved-videos";
 
 export default function Shorts() {
   const [, setLocation] = useLocation();
@@ -79,7 +79,7 @@ export default function Shorts() {
           
           <div className="flex items-center space-x-2">
             <div className="hexagon scale-50" />
-            <span className="text-xs">Stored on IPFS</span>
+            <span className="text-xs">Stored on walrus</span>
           </div>
         </div>
 
@@ -119,6 +119,7 @@ export default function Shorts() {
             <Coins className="h-5 w-5" />
             <span className="text-xs">Tip</span>
           </Button>
+          <SavedVideos />
         </div>
       </div>
 

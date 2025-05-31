@@ -86,7 +86,7 @@ export default function VideoPlayer() {
                   <span>Dec 15, 2023</span>
                   <div className="flex items-center space-x-1">
                     <div className="hexagon scale-50" />
-                    <span>Stored on IPFS</span>
+                    <span>Stored on walrus</span>
                   </div>
                 </div>
                 
