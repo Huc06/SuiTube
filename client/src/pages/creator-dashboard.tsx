@@ -106,7 +106,7 @@ export default function CreatorDashboard() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">IPFS Storage</p>
+                  <p className="text-sm text-gray-600">walrus Storage</p>
                   <p className="text-2xl font-bold text-gray-900">{stats.storageUsed} GB</p>
                 </div>
                 <div className="p-3 bg-green-100 rounded-full">
@@ -142,7 +142,7 @@ export default function CreatorDashboard() {
               </Button>
               <div className="mt-4 flex items-center justify-center space-x-2 text-sm text-gray-500">
                 <div className="hexagon scale-50" />
-                <span>Automatically stored on IPFS via Walrus</span>
+                <span>Automatically stored on walrus via Walrus</span>
               </div>
             </div>
 
@@ -151,7 +151,7 @@ export default function CreatorDashboard() {
               <div className="mt-6">
                 <Progress value={uploadProgress} className="mb-2" />
                 <div className="flex justify-between items-center text-sm">
-                  <span className="text-gray-600">Uploading to IPFS...</span>
+                  <span className="text-gray-600">Uploading to walrus...</span>
                   <span className="text-blue-600 font-medium">{uploadProgress}%</span>
                 </div>
               </div>
@@ -215,7 +215,7 @@ export default function CreatorDashboard() {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <Badge className="bg-green-100 text-green-800 flex items-center space-x-1 w-fit">
                             <div className="hexagon scale-25" />
-                            <span>On IPFS</span>
+                            <span>On walrus</span>
                           </Badge>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-4">

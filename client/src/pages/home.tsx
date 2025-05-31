@@ -45,7 +45,7 @@ export default function Home() {
               <Button
                 size="lg"
                 variant="outline"
-                className="px-6 sm:px-8 py-2.5 sm:py-3 border-2 border-white text-white font-semibold rounded-full hover:bg-white hover:text-blue-600 text-sm sm:text-base"
+                className="px-6 sm:px-8 py-2.5 sm:py-3 border-2 border-white text-blue-600 font-semibold rounded-full hover:bg-white hover:text-blue-600 text-sm sm:text-base"
               >
                 Learn More
               </Button>

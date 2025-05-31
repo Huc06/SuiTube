@@ -79,7 +79,7 @@ export default function Shorts() {
           
           <div className="flex items-center space-x-2">
             <div className="hexagon scale-50" />
-            <span className="text-xs">Stored on IPFS</span>
+            <span className="text-xs">Stored on walrus</span>
           </div>
         </div>
 

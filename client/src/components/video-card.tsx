@@ -31,8 +31,8 @@ export default function VideoCard({ video, creator, onClick }: VideoCardProps) {
         <div className="absolute top-1 sm:top-2 left-1 sm:left-2">
           <Badge className="text-xs bg-green-500 text-white flex items-center space-x-1 px-1.5 sm:px-2 py-0.5">
             <div className="hexagon scale-50" />
-            <span className="hidden sm:inline">Stored on IPFS</span>
-            <span className="sm:hidden">IPFS</span>
+            <span className="hidden sm:inline">Stored on walrus</span>
+            <span className="sm:hidden">walrus</span>
           </Badge>
         </div>
         

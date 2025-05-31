@@ -35,8 +35,8 @@ export default function ShortsCard({ video, onClick }: ShortsCardProps) {
         <div className="absolute top-1 sm:top-2 left-1 sm:left-2">
           <Badge className="text-xs bg-blue-500 text-white flex items-center space-x-1 px-1.5 sm:px-2 py-0.5">
             <div className="hexagon scale-50" />
-            <span className="hidden sm:inline">IPFS</span>
-            <span className="sm:hidden">I</span>
+            <span className="hidden sm:inline">walrus</span>
+            <span className="sm:hidden">W</span>
           </Badge>
         </div>
       </div>

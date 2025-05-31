@@ -11,7 +11,7 @@ export default function UploadSection() {
     {
       icon: Upload,
       title: "Upload Instantly",
-      description: "Drag and drop your videos for instant IPFS storage",
+      description: "Drag and drop your videos for instant walrus storage",
       color: "bg-blue-600 bg-opacity-10 text-blue-600",
     },
     {
