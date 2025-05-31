@@ -56,7 +56,7 @@ export default function ShortsCard({ video, onClick }: ShortsCardProps) {
 
 export async function getTuskyFilesByVault(vaultId: string): Promise<Video[]> {
   const TUSKY_API_URL = "https://api.tusky.io";
-  const TUSKY_API_KEY = "54b46155-e686-457c-adb6-f6c247d25211"; // Thay bằng apiKey của bạn
+  const TUSKY_API_KEY = "abad7807-d55e-49f3-af26-2edc3349ec5f"; // Thay bằng apiKey của bạn
 
   const response = await fetch(`${TUSKY_API_URL}/files?vaultId=${vaultId}`, {
     headers: {

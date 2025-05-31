@@ -3,7 +3,7 @@ import ShortsCard, { Video, getTuskyFilesByVault } from "./shorts-card";
 
 export default function SavedVideos() {
   const [videos, setVideos] = useState<Video[]>([]);
-  const VAULT_ID = "3c35c95c-27dd-437c-a39c-7d697aed643e"; // Thay bằng vaultId thật của bạn
+  const VAULT_ID = "b62fe52a-9473-4cbe-828e-60b1209b46be"; // Thay bằng vaultId thật của bạn
 
   useEffect(() => {
     getTuskyFilesByVault(VAULT_ID).then(setVideos).catch(console.error);
