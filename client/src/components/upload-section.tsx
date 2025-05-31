@@ -1,5 +1,4 @@
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Upload, Coins, Shield } from "lucide-react";
 import { useWalletAdapter } from "@/lib/WalletAdapter";
 import { useState } from 'react';
@@ -35,6 +34,7 @@ export default function UploadSection() {
   const [cid, setCid] = useState("");
   const [isShort, setIsShort] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [file, setFile] = useState<File | null>(null);
 
   // --- Wallet Adapter ---
   const { addVideo, walletAddress, txResult } = useWalletAdapter();
@@ -43,18 +43,42 @@ export default function UploadSection() {
   // Only get objectId, without module/type
   const VIDEO_LIST_ID = import.meta.env.VITE_VIDEO_LIST_ID || "0x4fd44795dd9757b592bafdfc31f028bfa55d3566ebf435a4e85a89edb2ef87fa";
 
+  const TUSKY_API_URL = "https://api.tusky.io";
+  const TUSKY_API_KEY = "54b46155-e686-457c-adb6-f6c247d25211"; 
+  const TUSKY_VAULT_ID = "3c35c95c-27dd-437c-a39c-7d697aed643e"; 
+
+  async function uploadToTusky(file: File): Promise<string> {
+    const response = await fetch(`${TUSKY_API_URL}/uploads?vaultId=${TUSKY_VAULT_ID}&filename=${encodeURIComponent(file.name)}`, {
+      method: "POST",
+      headers: {
+        "Api-Key": TUSKY_API_KEY,
+        "Content-Type": "application/offset+octet-stream",
+        "Content-Length": file.size.toString(),
+      },
+      body: file,
+    });
+    if (!response.ok) throw new Error("Tusky upload failed");
+    const location = response.headers.get("location");
+    if (!location) throw new Error("No location header from Tusky");
+    // location dạng: /uploads/{id}
+    return location.split("/").pop()!;
+  }
+
   const handleAddVideo = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       if (!walletAddress) throw new Error("Please connect your Sui wallet");
-      if (!title || !description || !cid) throw new Error("Please fill in all information");
+      if (!title || !description || !file) throw new Error("Please fill in all information");
+      // 1. Upload file lên Tusky
+      const tuskyFileId = await uploadToTusky(file);
+      // 2. Gọi addVideo với cid là tuskyFileId
       await addVideo({
         title,
         desc: description,
-        cid,
+        cid: tuskyFileId,
         owner: walletAddress,
         isShort,
-        videoListId: VIDEO_LIST_ID, // Ensure it's objectId
+        videoListId: VIDEO_LIST_ID,
       });
     } catch (err: any) {
       // error will be updated by txResult
@@ -97,8 +121,8 @@ export default function UploadSection() {
               <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Description" />
             </div>
             <div className="mb-4">
-              <label className="block mb-1 font-medium">IPFS CID</label>
-              <Input value={cid} onChange={e => setCid(e.target.value)} placeholder="Qm..." />
+              <label className="block mb-1 font-medium">Video File</label>
+              <Input type="file" accept="video/*" onChange={e => setFile(e.target.files?.[0] || null)} />
             </div>
             <div className="mb-4 flex items-center gap-2">
               <Switch checked={isShort} onCheckedChange={setIsShort} id="isShort" />

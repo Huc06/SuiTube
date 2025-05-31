@@ -1,7 +1,15 @@
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatViews } from "@/lib/utils";
-import type { Video } from "@shared/schema";
+
+export interface Video {
+  id: string;
+  title: string;
+  thumbnailUrl?: string;
+  duration?: string | number;
+  views?: number;
+  // Thêm các trường khác nếu cần
+}
 
 interface ShortsCardProps {
   video: Video;
@@ -43,6 +51,28 @@ export default function ShortsCard({ video, onClick }: ShortsCardProps) {
       </div>
     </Card>
   );
+}
+
+
+export async function getTuskyFilesByVault(vaultId: string): Promise<Video[]> {
+  const TUSKY_API_URL = "https://api.tusky.io";
+  const TUSKY_API_KEY = "54b46155-e686-457c-adb6-f6c247d25211"; // Thay bằng apiKey của bạn
+
+  const response = await fetch(`${TUSKY_API_URL}/files?vaultId=${vaultId}`, {
+    headers: {
+      "Api-Key": TUSKY_API_KEY,
+    },
+  });
+  if (!response.ok) throw new Error("Tusky GET files failed");
+  const data = await response.json();
+  // data.items là mảng file, bạn cần map sang Video nếu cần
+  return data.items.map((item: any) => ({
+    id: item.id,
+    title: item.name,
+    thumbnailUrl: "", // Nếu có trường thumbnail thì lấy, không thì để rỗng
+    duration: "",     // Nếu có trường duration thì lấy, không thì để rỗng
+    views: 0,         // Nếu có trường views thì lấy, không thì để 0
+  }));
 }
 
 
