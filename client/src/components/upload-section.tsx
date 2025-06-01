@@ -49,30 +49,31 @@ export default function UploadSection() {
   const TUSKY_VAULT_ID = "b62fe52a-9473-4cbe-828e-60b1209b46be"; 
 
   async function uploadToTusky(file: File): Promise<string> {
-    const response = await fetch(`${TUSKY_API_URL}/uploads?vaultId=${TUSKY_VAULT_ID}&filename=${encodeURIComponent(file.name)}`, {
-      method: "POST",
-      headers: {
-        "Api-Key": TUSKY_API_KEY,
-        "Content-Type": "application/offset+octet-stream",
-        "Content-Length": file.size.toString(),
-      },
-      body: file,
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await fetch('http://localhost:3001/api/upload', {
+      method: 'POST',
+      body: formData,
     });
-    if (!response.ok) throw new Error("Tusky upload failed");
-    const location = response.headers.get("location");
-    if (!location) throw new Error("No location header from Tusky");
+    if (!response.ok) throw new Error("Tusky upload failed (proxy)");
+    const data = await response.json();
+    if (!data.location) throw new Error("No location header from Tusky proxy");
     // location dạng: /uploads/{id}
-    return location.split("/").pop()!;
+    return data.location.split("/").pop()!;
   }
 
   const handleAddVideo = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log("[UploadSection] Submit upload form", { title, description, file, isShort });
     try {
       if (!walletAddress) throw new Error("Please connect your Sui wallet");
       if (!title || !description || !file) throw new Error("Please fill in all information");
       // 1. Upload file lên Tusky
+      console.log("[UploadSection] Uploading file to Tusky", file);
       const tuskyFileId = await uploadToTusky(file);
+      console.log("[UploadSection] File uploaded to Tusky, tuskyFileId:", tuskyFileId);
       // 2. Gọi addVideo với cid là tuskyFileId
+      console.log("[UploadSection] Calling addVideo", { title, description, tuskyFileId, walletAddress, isShort, VIDEO_LIST_ID });
       await addVideo({
         title,
         desc: description,
@@ -81,7 +82,9 @@ export default function UploadSection() {
         isShort,
         videoListId: VIDEO_LIST_ID,
       });
+      console.log("[UploadSection] addVideo called successfully");
     } catch (err: any) {
+      console.error("[UploadSection] Error in handleAddVideo", err);
       // error will be updated by txResult
     }
   };
@@ -159,7 +162,7 @@ export default function UploadSection() {
             </div>
             <div className="mb-4">
               <label className="block mb-1 font-medium">Video File</label>
-              <Input type="file" accept="video/*" onChange={e => setFile(e.target.files?.[0] || null)} />
+              <Input type="file" accept="video/*" onChange={e => { setFile(e.target.files?.[0] || null); console.log("[UploadSection] File selected", e.target.files?.[0]); }} />
             </div>
             <div className="mb-4 flex items-center gap-2">
               <Switch checked={isShort} onCheckedChange={setIsShort} id="isShort" />
@@ -209,7 +212,7 @@ export default function UploadSection() {
           <Button
             size="lg"
             className="px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold rounded-full hover:shadow-lg transition-all duration-300 transform hover:scale-105 relative overflow-hidden group animate-glow"
-            onClick={() => setShowForm(true)}
+            onClick={() => { setShowForm(true); console.log("[UploadSection] Clicked Start Creating Now"); }}
           >
             <span className="relative z-10">Start Creating Now</span>
             <span className="absolute inset-0 bg-gradient-to-r from-blue-400 to-purple-400 opacity-0 group-hover:opacity-30 transition duration-300 rounded-full animate-glow" />
