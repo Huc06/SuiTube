@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { formatViews } from "@/lib/utils";
 import axios from 'axios';
+import shortsThumbnail from "./images/shorts-thumbnail.png";
 
 export interface Video {
   id: string;
@@ -38,7 +39,7 @@ export default function ShortsCard({ video, onClick }: ShortsCardProps) {
           />
         ) : (
           <img
-            src={"/images/shorts-thumbnail.png"}          
+            src={shortsThumbnail}          
             alt={video.title}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
           />
