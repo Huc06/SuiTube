@@ -49,6 +49,8 @@ SuiTube is a decentralized video platform built on the Sui blockchain, enabling 
 ├── package.json         # Project dependencies
 ├── tsconfig.json        # TypeScript config
 ├── vite.config.ts       # Vite config
+├── server.js             # Express server: proxy upload video on tusky
+|
 └── README.md            # (You are here)
 ```
 
@@ -93,7 +95,12 @@ VITE_VIDEO_LIST_ID=0x...          # objectId of VideoList
 
 ---
 
-## Component Details
+## Server (server.js) [English]
+
+- **server.js** is a lightweight Express server that acts as a proxy to upload videos from the frontend to the decentralized storage service Walrus (IPFS/Tusky).
+- When a user uploads a video, the file is sent to the `/api/upload` endpoint of this server, which then forwards the file to Walrus via its API, receives the storage link (CID/hash), and returns it to the frontend.
+- This server helps secure your API key and simplifies the process of uploading large files from the browser.
+- You can configure CORS, API key, and vaultId directly in the `server.js` file.
 
 ### Frontend (client)
 
@@ -125,7 +132,7 @@ VITE_VIDEO_LIST_ID=0x...          # objectId of VideoList
 
 ---
 
-## Data Schema
+
 
 ### Video
 
@@ -184,3 +191,6 @@ VITE_VIDEO_LIST_ID=0x...          # objectId of VideoList
 ## License
 
 MIT 
+
+---
+
