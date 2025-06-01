@@ -2,6 +2,10 @@
 
 SuiTube is a decentralized video platform built on the Sui blockchain, enabling users to upload, watch, tip, and earn rewards for videos. The project features a modern React frontend, direct integration with Move smart contracts on Sui, and decentralized video storage via walrus (Tusky).
 
+## 📽️ Video Demo
+
+👉 [Watch the video](https://www.youtube.com/watch?v=5kswW0_0kwc)
+
 ---
 
 ## Table of Contents
