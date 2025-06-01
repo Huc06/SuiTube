@@ -1,11 +1,9 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Heart, MessageCircle, Share, Coins } from "lucide-react";
 import { useLocation } from "wouter";
 import { mockShorts, mockUsers } from "@/lib/mock-data";
-import SavedVideos from "@/components/Saved-videos";
 
 export default function Shorts() {
   const [, setLocation] = useLocation();
@@ -26,7 +24,7 @@ export default function Shorts() {
   }, [currentShort, shorts.length]);
 
   const current = shorts[currentShort];
-  const creator = mockUsers.find(user => user.id === current?.creatorId);
+  const creator = mockUsers.find((user: any) => user.id === current?.creatorId);
 
   if (!current || !creator) {
     return (
@@ -74,9 +72,7 @@ export default function Shorts() {
               Follow
             </Button>
           </div>
-          
           <p className="text-sm mb-2">{current.description}</p>
-          
           <div className="flex items-center space-x-2">
             <div className="hexagon scale-50" />
             <span className="text-xs">Stored on walrus</span>
@@ -93,7 +89,6 @@ export default function Shorts() {
             <Heart className="h-6 w-6" />
             <span className="text-xs">{(current.likes || 0).toLocaleString()}</span>
           </Button>
-          
           <Button
             variant="ghost"
             size="sm"
@@ -102,7 +97,6 @@ export default function Shorts() {
             <MessageCircle className="h-6 w-6" />
             <span className="text-xs">89</span>
           </Button>
-          
           <Button
             variant="ghost"
             size="sm"
@@ -111,7 +105,6 @@ export default function Shorts() {
             <Share className="h-6 w-6" />
             <span className="text-xs">Share</span>
           </Button>
-          
           <Button
             size="sm"
             className="flex flex-col items-center space-y-1 bg-gradient-to-r from-blue-600 to-purple-600 p-2 rounded-full animate-glow"
@@ -119,13 +112,12 @@ export default function Shorts() {
             <Coins className="h-5 w-5" />
             <span className="text-xs">Tip</span>
           </Button>
-          <SavedVideos />
         </div>
       </div>
 
       {/* Navigation Indicators */}
       <div className="absolute right-2 top-1/2 transform -translate-y-1/2 z-10 flex flex-col space-y-1">
-        {shorts.map((_, index) => (
+        {shorts.map((_: any, index: number) => (
           <div
             key={index}
             className={`w-1 h-8 rounded-full ${

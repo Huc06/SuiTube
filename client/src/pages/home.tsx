@@ -4,9 +4,11 @@ import VideoCard from "@/components/video-card";
 import ShortsCard from "@/components/shorts-card";
 import CreatorSpotlight from "@/components/creator-spotlight";
 import UploadSection from "@/components/upload-section";
-import { mockVideos, mockShorts, mockUsers } from "@/lib/mock-data";
+import { mockVideos, mockUsers } from "@/lib/mock-data";
 import { useLocation } from "wouter";
 import { motion } from "framer-motion";
+import SavedVideos from "@/components/Saved-videos";
+
 
 export default function Home() {
   const [, setLocation] = useLocation();
@@ -117,20 +119,20 @@ export default function Home() {
             </div>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-3 lg:gap-4">
-            {mockShorts.map((short, idx) => (
+            <SavedVideos renderItem={(video, idx) => (
               <motion.div
-                key={short.id}
+                key={video.id}
                 initial={{ opacity: 0, y: 30 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, amount: 0.2 }}
                 transition={{ delay: idx * 0.05, duration: 0.5 }}
               >
                 <ShortsCard
-                  video={short}
+                  video={video}
                   onClick={() => setLocation('/shorts')}
                 />
               </motion.div>
-            ))}
+            )} />
           </div>
         </div>
       </section>
