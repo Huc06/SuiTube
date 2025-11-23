@@ -1,0 +1,74 @@
+# Compiled output
+/dist
+/node_modules
+/build
+
+# Logs
+logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+*.sublime-project
+*.sublime-workspace
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+.env.development
+.env.production
+.env.test
+
+# Testing
+/coverage
+/.nyc_output
+
+# Temporary files
+*.tmp
+*.temp
+/tmp
+/temp
+
+# Uploads directory (user uploaded files)
+/uploads
+/uploads/*
+
+# Prisma (if used in future)
+/prisma/migrations
+*.db
+*.db-journal
+
+# Build artifacts
+*.tsbuildinfo
+
+# NestJS
+dist/
+*.js.map
+
+# Misc
+.cache
+.parcel-cache
+.next
+out
