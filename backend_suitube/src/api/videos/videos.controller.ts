@@ -8,11 +8,16 @@ import {
   UploadedFile,
   ParseIntPipe,
   BadRequestException,
+  Res,
+  Headers,
+  NotFoundException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiHeader } from '@nestjs/swagger';
+import type { Response } from 'express';
 import * as fs from 'fs';
 import * as path from 'path';
+import axios from 'axios';
 import { VideosService } from './videos.service';
 
 @ApiTags('videos')
@@ -24,10 +29,12 @@ export class VideosController {
   @ApiOperation({ summary: 'Get all videos' })
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiQuery({ name: 'offset', required: false, type: Number })
+  @ApiQuery({ name: 'walrusOnly', required: false, type: Boolean, description: 'Get videos from Walrus only (bypass blockchain)' })
   @ApiResponse({ status: 200, description: 'List of videos' })
   async getAllVideos(
     @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
     @Query('offset', new ParseIntPipe({ optional: true })) offset?: number,
+    @Query('walrusOnly') walrusOnly?: string,
   ) {
     // Validate limit is positive
     if (limit !== undefined && limit <= 0) {
@@ -42,6 +49,12 @@ export class VideosController {
     // Validate and cap limit to max 100
     const validLimit = limit && limit > 0 ? Math.min(limit, 100) : 50;
     const validOffset = offset && offset >= 0 ? offset : 0;
+    
+    // If walrusOnly is true, return videos from Walrus (temporary for testing)
+    if (walrusOnly === 'true') {
+      return this.videosService.getVideosFromWalrus(validLimit, validOffset);
+    }
+    
     return this.videosService.getAllVideos(validLimit, validOffset);
   }
 
@@ -109,6 +122,15 @@ export class VideosController {
       // Clean up temp file
       fs.unlinkSync(tempPath);
 
+      // Register video in temporary storage (until blockchain integration)
+      await this.videosService.registerWalrusVideo({
+        cid: result.cid,
+        title: title || file.originalname,
+        description: description || '',
+        owner: owner || '0x0000000000000000000000000000000000000000',
+        isShort: false,
+      });
+
       return {
         success: true,
         cid: result.cid,
@@ -116,6 +138,7 @@ export class VideosController {
         filename: file.originalname,
         size: file.size,
         message: 'Video uploaded successfully to Walrus',
+        note: 'Video is registered temporarily. Call smart contract add_video to add to blockchain.',
       };
     } catch (error) {
       // Clean up temp file on error
@@ -124,6 +147,104 @@ export class VideosController {
       }
       throw error;
     }
+  }
+
+  @Get(':id/stream')
+  @ApiOperation({ summary: 'Stream video from Walrus with Range support' })
+  @ApiHeader({ name: 'Range', required: false, description: 'HTTP Range header for seeking' })
+  @ApiResponse({ status: 200, description: 'Video stream' })
+  @ApiResponse({ status: 206, description: 'Partial content (Range request)' })
+  @ApiResponse({ status: 404, description: 'Video not found' })
+  async streamVideo(
+    @Param('id') id: string,
+    @Headers('range') range: string | undefined,
+    @Res() res: Response,
+  ) {
+    const videoInfo = await this.videosService.streamVideo(id, range);
+    
+    if (!videoInfo) {
+      throw new NotFoundException('Video not found');
+    }
+
+    try {
+      // Prepare headers for Walrus request
+      const headers: Record<string, string> = {};
+      if (range) {
+        headers['Range'] = range;
+      }
+
+      // Stream video from Walrus
+      const response = await axios.get(videoInfo.url, {
+        headers,
+        responseType: 'stream',
+        timeout: 300000, // 5 minutes
+      });
+
+      // Forward status code
+      res.status(response.status);
+
+      // Forward headers
+      // Walrus returns application/octet-stream, but we need video/mp4 for browser
+      // Try to detect from URL or default to video/mp4
+      let contentType = response.headers['content-type'];
+      if (!contentType || contentType === 'application/octet-stream') {
+        // Try to detect from file extension or default to video/mp4
+        contentType = 'video/mp4'; // Default to mp4, can be enhanced later
+      }
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Accept-Ranges', 'bytes');
+      
+      if (response.headers['content-length']) {
+        res.setHeader('Content-Length', response.headers['content-length']);
+      }
+      
+      if (response.headers['content-range']) {
+        res.setHeader('Content-Range', response.headers['content-range']);
+      }
+
+      // Enable CORS for video streaming
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Range');
+
+      // Stream the video data
+      response.data.pipe(res);
+    } catch (error) {
+      if (error.response?.status === 404) {
+        throw new NotFoundException('Video file not found on Walrus');
+      }
+      throw error;
+    }
+  }
+
+  @Post('register')
+  @ApiOperation({ summary: 'Register a video that was already uploaded to Walrus' })
+  @ApiQuery({ name: 'cid', required: true, description: 'Walrus Blob ID (CID)' })
+  @ApiQuery({ name: 'title', required: true })
+  @ApiQuery({ name: 'description', required: false })
+  @ApiQuery({ name: 'owner', required: false })
+  @ApiQuery({ name: 'isShort', required: false, type: Boolean })
+  @ApiResponse({ status: 200, description: 'Video registered' })
+  async registerVideo(
+    @Query('cid') cid: string,
+    @Query('title') title: string,
+    @Query('description') description?: string,
+    @Query('owner') owner?: string,
+    @Query('isShort') isShort?: string,
+  ) {
+    const video = await this.videosService.registerWalrusVideo({
+      cid,
+      title,
+      description: description || '',
+      owner: owner || '0x0000000000000000000000000000000000000000',
+      isShort: isShort === 'true',
+    });
+    
+    return {
+      success: true,
+      video,
+      message: 'Video registered successfully',
+    };
   }
 
   @Post(':id/view')
