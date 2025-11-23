@@ -3,12 +3,19 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ArrowLeft, Heart, MessageCircle, Share, Coins } from "lucide-react";
 import { useLocation } from "wouter";
-import { mockShorts, mockUsers } from "@/lib/mock-data";
+import { mockUsers } from "@/lib/mock-data";
+import { useVideos } from "@/hooks/use-videos";
+import { transformVideos } from "@/lib/api-transform";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Shorts() {
   const [, setLocation] = useLocation();
   const [currentShort, setCurrentShort] = useState(0);
-  const [shorts] = useState(mockShorts);
+  
+  // Fetch shorts from API (videos where isShort = true)
+  const { data: apiVideos = [], isLoading } = useVideos({ limit: 50 });
+  const apiShorts = apiVideos.filter(v => v.isShort);
+  const shorts = transformVideos(apiShorts, mockUsers);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -23,8 +30,24 @@ export default function Shorts() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [currentShort, shorts.length]);
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <Skeleton className="w-full h-full" />
+      </div>
+    );
+  }
+
+  if (shorts.length === 0) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <p className="text-white">No shorts available</p>
+      </div>
+    );
+  }
+
   const current = shorts[currentShort];
-  const creator = mockUsers.find((user: any) => user.id === current?.creatorId);
+  const creator = mockUsers.find((user: any) => user.walletAddress === current.walrusHash?.split('...')[0]) || mockUsers[0];
 
   if (!current || !creator) {
     return (

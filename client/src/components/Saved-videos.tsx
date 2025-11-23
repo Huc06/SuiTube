@@ -1,17 +1,18 @@
 import { useEffect, useState } from "react";
-import ShortsCard, { Video, getTuskyFilesByVault } from "./shorts-card";
+import ShortsCard, { Video } from "./shorts-card";
+import { useVideos } from "@/hooks/use-videos";
+import { transformVideos } from "@/lib/api-transform";
+import { mockUsers } from "@/lib/mock-data";
 
 interface SavedVideosProps {
   renderItem?: (video: Video, idx: number) => React.ReactNode;
 }
 
 export default function SavedVideos({ renderItem }: SavedVideosProps) {
-  const [videos, setVideos] = useState<Video[]>([]);
-  const VAULT_ID = "b62fe52a-9473-4cbe-828e-60b1209b46be"; // Thay bằng vaultId thật của bạn
-
-  useEffect(() => {
-    getTuskyFilesByVault(VAULT_ID).then(setVideos).catch(console.error);
-  }, []);
+  // Fetch shorts from API
+  const { data: apiVideos = [] } = useVideos({ limit: 20 });
+  const apiShorts = apiVideos.filter(v => v.isShort);
+  const videos = transformVideos(apiShorts, mockUsers);
 
 
   return (

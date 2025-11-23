@@ -1,181 +1,190 @@
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import VideoCard from "@/components/video-card";
-import ShortsCard from "@/components/shorts-card";
-import CreatorSpotlight from "@/components/creator-spotlight";
 import UploadSection from "@/components/upload-section";
-import { mockVideos, mockUsers } from "@/lib/mock-data";
+import { mockUsers } from "@/lib/mock-data";
 import { useLocation } from "wouter";
-import { motion } from "framer-motion";
-import SavedVideos from "@/components/Saved-videos";
+import { useVideos } from "@/hooks/use-videos";
+import { transformVideos } from "@/lib/api-transform";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Search } from "lucide-react";
+import { Input } from "@/components/ui/input";
 
 
 export default function Home() {
   const [, setLocation] = useLocation();
+  
+  // Fetch videos from API
+  const { data: apiVideos = [], isLoading, error, refetch } = useVideos({ limit: 20 });
+  
+  // Debug logging
+  useEffect(() => {
+    console.log('[Home] Videos data:', apiVideos);
+    console.log('[Home] Videos count:', apiVideos.length);
+    console.log('[Home] Is loading:', isLoading);
+    console.log('[Home] Error:', error);
+    
+    // Auto-refetch if no videos and not loading
+    if (!isLoading && apiVideos.length === 0 && !error) {
+      console.log('[Home] No videos found, refetching...');
+      setTimeout(() => refetch(), 1000);
+    }
+  }, [apiVideos, isLoading, error, refetch]);
+  
+  // Transform API videos to frontend format
+  const videos = transformVideos(apiVideos, mockUsers);
+  const regularVideos = videos.filter(v => !v.isShort);
+  const shorts = videos.filter(v => v.isShort);
 
-  const filterTabs = [
-    { label: "All", active: true },
-    { label: "Most Tipped", active: false },
-    { label: "Trending on Sui", active: false },
-    { label: "Gaming", active: false },
-    { label: "Crypto Education", active: false },
-    { label: "DeFi", active: false },
+  const [activeTab, setActiveTab] = useState("Recent");
+  const [selectedTag, setSelectedTag] = useState<string | null>(null);
+  
+  const tags = ["#funny", "#walrus", "#reaction", "#cute", "#mood"];
+  
+  const tabs = [
+    { label: "Recent", value: "Recent" },
+    { label: "Most Tipped", value: "Most Tipped" },
+    { label: "Most Remixed", value: "Most Remixed" },
   ];
 
-  const handleVideoClick = (videoId: number) => {
-    setLocation(`/video/${videoId}`);
+  const handleVideoClick = (video: any, apiVideo: any) => {
+    // Use CID from API instead of transformed numeric ID
+    const videoCid = apiVideo?.cid || apiVideo?.id || video.walrusHash;
+    if (videoCid) {
+      setLocation(`/video/${videoCid}`);
+    }
   };
 
   return (
-    <div className="min-h-screen">
-      {/* Hero Section */}
-      <section className="relative bg-gradient-to-r from-blue-600 to-purple-600 text-white hexagon-pattern">
-        <div className="absolute inset-0 gradient-overlay" />
-        <div className="relative max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-8 sm:py-12">
-          <div className="text-center">
-            <motion.h2
-              className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-3 sm:mb-4 animate-glow"
-              initial={{ opacity: 0, y: -30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8 }}
-              style={{ textShadow: '0 0 16px #a78bfa, 0 0 32px #2563eb' }}
-            >
-              Welcome to the Future of Video
-            </motion.h2>
-            <motion.p
-              className="text-sm sm:text-lg lg:text-xl mb-6 sm:mb-8 opacity-90 px-4"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3, duration: 0.7 }}
-            >
-              Decentralized, rewarding, and powered by Sui blockchain
-            </motion.p>
-            <motion.div
-              className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center px-4"
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.5, duration: 0.6 }}
-            >
-              <Button
-                size="lg"
-                className="px-6 sm:px-8 py-2.5 sm:py-3 bg-white text-blue-600 font-semibold rounded-full hover:bg-gray-100 text-sm sm:text-base relative overflow-hidden group shadow-lg"
-                onClick={() => setLocation('/creator-dashboard')}
-              >
-                <span className="relative z-10">Start Creating</span>
-                <span className="absolute inset-0 bg-gradient-to-r from-blue-400 to-purple-400 opacity-0 group-hover:opacity-30 transition duration-300 rounded-full animate-glow" />
-              </Button>
-              <Button
-                size="lg"
-                variant="outline"
-                className="px-6 sm:px-8 py-2.5 sm:py-3 border-2 border-white text-blue-600 font-semibold rounded-full hover:bg-white hover:text-blue-600 text-sm sm:text-base relative overflow-hidden group shadow-lg"
-              >
-                <span className="relative z-10">Learn More</span>
-                <span className="absolute inset-0 bg-gradient-to-r from-purple-400 to-blue-400 opacity-0 group-hover:opacity-30 transition duration-300 rounded-full animate-glow" />
-              </Button>
-            </motion.div>
+    <div className="min-h-screen bg-white">
+      {/* Search Bar */}
+      <section className="border-b border-gray-200 py-6">
+        <div className="max-w-4xl mx-auto px-4">
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <Input
+              type="text"
+              placeholder="Search videos or #tags..."
+              className="w-full pl-12 pr-4 py-3 rounded-full border-2 border-transparent bg-gray-50 focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
+              style={{
+                backgroundImage: 'linear-gradient(white, white), linear-gradient(to right, #3b82f6, #f97316)',
+                backgroundOrigin: 'border-box',
+                backgroundClip: 'padding-box, border-box',
+              }}
+            />
           </div>
         </div>
       </section>
 
-      {/* Filter Tabs */}
-      <section className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
-        <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8">
-          <div className="flex space-x-2 sm:space-x-4 lg:space-x-8 overflow-x-auto py-3 sm:py-4 scrollbar-hide">
-            {filterTabs.map((tab) => (
-              <motion.div
-                key={tab.label}
-                whileHover={{ scale: 1.08, boxShadow: '0 0 12px #818cf8' }}
-                whileTap={{ scale: 0.97 }}
+      {/* Tag Filters */}
+      <section className="border-b border-gray-200 py-3">
+        <div className="max-w-4xl mx-auto px-4">
+          <div className="flex space-x-2 overflow-x-auto scrollbar-hide">
+            {tags.map((tag) => (
+              <Button
+                key={tag}
+                variant={selectedTag === tag ? "default" : "outline"}
+                size="sm"
+                onClick={() => setSelectedTag(selectedTag === tag ? null : tag)}
+                className={`rounded-full ${
+                  selectedTag === tag
+                    ? "bg-blue-600 text-white"
+                    : "bg-white text-gray-700 hover:bg-gray-100"
+                }`}
               >
-                <Button
-                  size="sm"
-                  variant={tab.active ? "default" : "secondary"}
-                  className={`whitespace-nowrap rounded-full text-xs sm:text-sm flex-shrink-0 transition-all duration-200 border-2 ${
-                    tab.active
-                      ? "bg-blue-600 text-white border-blue-400 shadow-lg animate-glow"
-                      : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 border-transparent"
-                  }`}
-                >
-                  {tab.label}
-                </Button>
-              </motion.div>
+                {tag}
+              </Button>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Shorts Section */}
-      <section className="bg-gray-50 dark:bg-gray-800 py-4 sm:py-6 lg:py-8">
-        <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8">
-          <div className="flex items-center justify-between mb-4 sm:mb-6">
-            <div className="flex items-center space-x-2 sm:space-x-3">
-              <div className="w-5 h-5 sm:w-6 sm:h-6 bg-blue-600 rounded-full flex items-center justify-center animate-float">
-                <div className="w-2 h-2 sm:w-3 sm:h-3 bg-white rounded-full" />
-              </div>
-              <h3 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 dark:text-gray-100 gradient-text animate-glow">Shorts</h3>
-              <Badge className="blockchain-glow text-white text-xs font-medium hidden sm:inline-flex animate-glow">
-                Blockchain Powered
-              </Badge>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-3 lg:gap-4">
-            <SavedVideos renderItem={(video, idx) => (
-              <motion.div
-                key={video.id}
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, amount: 0.2 }}
-                transition={{ delay: idx * 0.05, duration: 0.5 }}
+      {/* Navigation Tabs */}
+      <section className="border-b border-gray-200">
+        <div className="max-w-4xl mx-auto px-4">
+          <div className="flex space-x-6">
+            {tabs.map((tab) => (
+              <button
+                key={tab.value}
+                onClick={() => setActiveTab(tab.value)}
+                className={`py-4 px-2 border-b-2 transition-colors ${
+                  activeTab === tab.value
+                    ? "border-blue-600 text-blue-600 font-semibold"
+                    : "border-transparent text-gray-600 hover:text-gray-900"
+                }`}
               >
-                <ShortsCard
-                  video={video}
-                  onClick={() => setLocation('/shorts')}
-                />
-              </motion.div>
-            )} />
+                {tab.label}
+              </button>
+            ))}
           </div>
         </div>
       </section>
 
       {/* Main Video Grid */}
-      <section className="py-4 sm:py-6 lg:py-8">
-        <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8">
-          <div className="flex items-center justify-between mb-4 sm:mb-6">
-            <h3 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 dark:text-gray-100 gradient-text animate-glow">Recommended</h3>
-            <div className="flex items-center space-x-1 sm:space-x-2">
-              <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Powered by</span>
-              <span className="text-xs sm:text-sm font-medium text-blue-600">Sui Network</span>
-            </div>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 sm:gap-4 lg:gap-6">
-            {mockVideos.map((video, idx) => {
-              const creator = mockUsers.find(user => user.id === video.creatorId);
-              return creator ? (
-                <motion.div
-                  key={video.id}
-                  initial={{ opacity: 0, y: 40 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true, amount: 0.2 }}
-                  transition={{ delay: idx * 0.07, duration: 0.6 }}
-                  whileHover={{ scale: 1.04, boxShadow: '0 8px 32px #818cf8' }}
+      <section className="py-6">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+            {isLoading ? (
+              // Loading skeletons
+              Array.from({ length: 12 }).map((_, idx) => (
+                <Skeleton key={idx} className="aspect-square w-full rounded-lg" />
+              ))
+            ) : error ? (
+              <div className="col-span-full text-center py-8">
+                <Alert className="max-w-md mx-auto bg-red-50 border-red-200">
+                  <AlertDescription className="text-red-800">
+                    <p className="font-semibold mb-2">Error loading videos</p>
+                    <p className="text-sm">{error.message}</p>
+                    <p className="text-xs mt-2 text-gray-600">
+                      API URL: {import.meta.env.VITE_API_URL || 'http://localhost:3001/api'}
+                    </p>
+                    <p className="text-xs text-gray-600">
+                      Fetched {apiVideos.length} videos from API
+                    </p>
+                  </AlertDescription>
+                </Alert>
+              </div>
+            ) : regularVideos.length === 0 ? (
+              <div className="col-span-full text-center py-12">
+                <p className="text-gray-500 mb-4">No videos available yet</p>
+                <Button 
+                  onClick={() => {
+                    const uploadSection = document.getElementById('upload-section');
+                    uploadSection?.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                  className="bg-blue-600 text-white"
                 >
-                  <VideoCard
-                    video={video}
-                    creator={creator}
-                    onClick={() => handleVideoClick(video.id)}
-                  />
-                </motion.div>
-              ) : null;
-            })}
+                  Upload Your First Video
+                </Button>
+              </div>
+            ) : (
+              regularVideos.map((video, idx) => {
+                const creator = mockUsers.find(user => user.walletAddress === video.walrusHash?.split('...')[0]) || mockUsers[0];
+                const apiVideo = apiVideos[idx];
+                return (
+                  <div
+                    key={video.id}
+                    className="cursor-pointer hover:opacity-90 transition-opacity"
+                    onClick={() => handleVideoClick(video, apiVideo)}
+                  >
+                    <VideoCard
+                      video={video}
+                      creator={creator}
+                      onClick={() => handleVideoClick(video, apiVideo)}
+                    />
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
       </section>
 
-      {/* Creator Spotlight */}
-      <CreatorSpotlight />
-
       {/* Upload Section */}
-      <UploadSection />
+      <div id="upload-section">
+        <UploadSection />
+      </div>
     </div>
   );
 }

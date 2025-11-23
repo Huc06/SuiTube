@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { motion } from "framer-motion";
+import { useUploadVideo } from "@/hooks/use-videos";
+import { useToast } from "@/hooks/use-toast";
 
 export default function UploadSection() {
   const features = [
@@ -38,54 +40,69 @@ export default function UploadSection() {
   const [file, setFile] = useState<File | null>(null);
 
   // --- Wallet Adapter ---
-  const { addVideo, walletAddress, txResult } = useWalletAdapter();
-
-
-  // Only get objectId, without module/type
-  const VIDEO_LIST_ID = import.meta.env.VITE_VIDEO_LIST_ID || "0x4fd44795dd9757b592bafdfc31f028bfa55d3566ebf435a4e85a89edb2ef87fa";
-
-  const TUSKY_API_URL = "https://api.tusky.io";
-  const TUSKY_API_KEY = "abad7807-d55e-49f3-af26-2edc3349ec5f";
-  const TUSKY_VAULT_ID = "b62fe52a-9473-4cbe-828e-60b1209b46be"; 
-
-  async function uploadToTusky(file: File): Promise<string> {
-    const formData = new FormData();
-    formData.append('file', file);
-    const response = await fetch('http://localhost:3001/api/upload', {
-      method: 'POST',
-      body: formData,
-    });
-    if (!response.ok) throw new Error("Tusky upload failed (proxy)");
-    const data = await response.json();
-    if (!data.location) throw new Error("No location header from Tusky proxy");
-    // location dạng: /uploads/{id}
-    return data.location.split("/").pop()!;
-  }
+  const { walletAddress } = useWalletAdapter();
+  const { toast } = useToast();
+  const uploadVideo = useUploadVideo();
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   const handleAddVideo = async (e: React.FormEvent) => {
     e.preventDefault();
     console.log("[UploadSection] Submit upload form", { title, description, file, isShort });
+    
     try {
-      if (!walletAddress) throw new Error("Please connect your Sui wallet");
-      if (!title || !description || !file) throw new Error("Please fill in all information");
-      // 1. Upload file lên Tusky
-      console.log("[UploadSection] Uploading file to Tusky", file);
-      const tuskyFileId = await uploadToTusky(file);
-      console.log("[UploadSection] File uploaded to Tusky, tuskyFileId:", tuskyFileId);
-      // 2. Gọi addVideo với cid là tuskyFileId
-      console.log("[UploadSection] Calling addVideo", { title, description, tuskyFileId, walletAddress, isShort, VIDEO_LIST_ID });
-      await addVideo({
-        title,
-        desc: description,
-        cid: tuskyFileId,
-        owner: walletAddress,
-        isShort,
-        videoListId: VIDEO_LIST_ID,
+      if (!walletAddress) {
+        toast({
+          title: "Wallet Required",
+          description: "Please connect your Sui wallet to upload videos",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      if (!title || !description || !file) {
+        toast({
+          title: "Missing Information",
+          description: "Please fill in all required fields",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Upload to Walrus via backend API
+      console.log("[UploadSection] Uploading file to Walrus", file);
+      
+      const result = await uploadVideo.mutateAsync({
+        file,
+        metadata: {
+          title,
+          description,
+          owner: walletAddress,
+        },
+        onProgress: (progress) => {
+          setUploadProgress(progress);
+        },
       });
-      console.log("[UploadSection] addVideo called successfully");
+
+      console.log("[UploadSection] File uploaded to Walrus", result);
+      
+      toast({
+        title: "Upload Successful!",
+        description: `Video "${title}" uploaded successfully. Blob ID: ${result.cid}`,
+      });
+
+      // Reset form
+      setTitle("");
+      setDescription("");
+      setFile(null);
+      setCid("");
+      setUploadProgress(0);
     } catch (err: any) {
       console.error("[UploadSection] Error in handleAddVideo", err);
-      // error will be updated by txResult
+      toast({
+        title: "Upload Failed",
+        description: err.message || "Failed to upload video. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -168,37 +185,53 @@ export default function UploadSection() {
               <Switch checked={isShort} onCheckedChange={setIsShort} id="isShort" />
               <label htmlFor="isShort" className="font-medium">Is Short Video?</label>
             </div>
-            <Button type="submit" size="lg" className="w-full" disabled={txResult.loading}>
-              {txResult.loading ? "Sending transaction..." : "Upload Video to Sui"}
+            {uploadProgress > 0 && uploadProgress < 100 && (
+              <div className="mb-4">
+                <div className="flex justify-between text-sm mb-1">
+                  <span>Uploading...</span>
+                  <span>{uploadProgress}%</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div
+                    className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${uploadProgress}%` }}
+                  />
+                </div>
+              </div>
+            )}
+            <Button
+              type="submit"
+              size="lg"
+              className="w-full"
+              disabled={uploadVideo.isPending || !file || !title || !description}
+            >
+              {uploadVideo.isPending
+                ? `Uploading... ${uploadProgress > 0 ? `${uploadProgress}%` : ''}`
+                : "Upload Video to Walrus"}
             </Button>
-            {txResult.error && <div className="text-red-500 mt-2">{txResult.error}</div>}
-            {txResult.success && (
+            {uploadVideo.isError && (
+              <div className="text-red-500 mt-2">
+                {uploadVideo.error instanceof Error
+                  ? uploadVideo.error.message
+                  : 'Upload failed. Please try again.'}
+              </div>
+            )}
+            {uploadVideo.isSuccess && uploadVideo.data && (
               <div className="text-green-600 mt-2">
-                Transaction successful!<br />
-                Transaction Block:
-                <pre className="bg-gray-100 rounded p-2 text-xs overflow-x-auto mt-1">
-                  {txResult.txId ? (
-                    <a
-                      href={`https://testnet.suivision.xyz/txblock/${txResult.txId}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 underline break-all"
-                    >
-                      {txResult.txId}
-                    </a>
-                  ) : txResult.rawResponse?.digest ? (
-                    <a
-                      href={`https://testnet.suivision.xyz/txblock/${txResult.rawResponse.digest}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 underline break-all"
-                    >
-                      {txResult.rawResponse.digest}
-                    </a>
-                  ) : (
-                    JSON.stringify(txResult.rawResponse, null, 2)
-                  )}
-                </pre>
+                <p>Upload successful!</p>
+                <p className="text-sm mt-1">
+                  Blob ID: <span className="font-mono text-xs">{uploadVideo.data.cid}</span>
+                </p>
+                <p className="text-sm">
+                  <a
+                    href={uploadVideo.data.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 underline"
+                  >
+                    View on Walrus
+                  </a>
+                </p>
               </div>
             )}
           </motion.form>
