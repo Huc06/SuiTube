@@ -1,0 +1,6 @@
+{
+  "installCommand": "cd frontend_suitube && pnpm install --frozen-lockfile",
+  "buildCommand": "cd frontend_suitube && pnpm run build",
+  "outputDirectory": "frontend_suitube/dist"
+}
+
