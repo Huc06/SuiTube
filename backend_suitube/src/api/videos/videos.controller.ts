@@ -2,17 +2,18 @@ import {
   Controller,
   Get,
   Post,
+  Delete,
   Param,
   Query,
   UseInterceptors,
-  UploadedFile,
+  UploadedFiles,
   ParseIntPipe,
   BadRequestException,
   Res,
   Headers,
   NotFoundException,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiHeader } from '@nestjs/swagger';
 import type { Response } from 'express';
 import * as fs from 'fs';
@@ -84,16 +85,28 @@ export class VideosController {
   }
 
   @Post('upload')
-  @UseInterceptors(FileInterceptor('video'))
+  @UseInterceptors(
+    FileFieldsInterceptor([
+      { name: 'video', maxCount: 1 },
+      { name: 'thumbnail', maxCount: 1 },
+    ]),
+  )
   @ApiOperation({ summary: 'Upload video file' })
   @ApiResponse({ status: 201, description: 'Video uploaded successfully' })
   async uploadVideo(
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFiles()
+    files: {
+      video?: Express.Multer.File[];
+      thumbnail?: Express.Multer.File[];
+    },
     @Query('title') title?: string,
     @Query('description') description?: string,
     @Query('owner') owner?: string,
   ) {
-    if (!file) {
+    const videoFile = files?.video?.[0];
+    const thumbnailFile = files?.thumbnail?.[0];
+
+    if (!videoFile) {
       throw new Error('No file uploaded');
     }
 
@@ -103,15 +116,21 @@ export class VideosController {
       fs.mkdirSync(uploadDir, { recursive: true });
     }
 
-    const tempPath = path.join(uploadDir, file.originalname);
-    fs.writeFileSync(tempPath, file.buffer);
+    const tempVideoPath = path.join(uploadDir, videoFile.originalname);
+    fs.writeFileSync(tempVideoPath, videoFile.buffer);
+
+    let tempThumbnailPath: string | null = null;
+    if (thumbnailFile) {
+      tempThumbnailPath = path.join(uploadDir, `thumb-${Date.now()}-${thumbnailFile.originalname}`);
+      fs.writeFileSync(tempThumbnailPath, thumbnailFile.buffer);
+    }
 
     try {
       // Upload to Walrus using HTTP API
       const result = await this.videosService.uploadVideoToWalrus(
-        tempPath,
+        tempVideoPath,
         {
-          title: title || file.originalname,
+          title: title || videoFile.originalname,
           description: description || '',
           owner: owner || '0x0000000000000000000000000000000000000000',
           epochs: 1, // Default 1 epoch, can be increased for longer storage
@@ -119,31 +138,52 @@ export class VideosController {
         },
       );
 
+      let thumbnailResult: { cid: string; url: string } | null = null;
+      if (thumbnailFile && tempThumbnailPath) {
+        thumbnailResult = await this.videosService.uploadThumbnailToWalrus(
+          tempThumbnailPath,
+          {
+            epochs: 1,
+            permanent: false,
+          },
+        );
+      }
+
       // Clean up temp file
-      fs.unlinkSync(tempPath);
+      fs.unlinkSync(tempVideoPath);
+      if (tempThumbnailPath && fs.existsSync(tempThumbnailPath)) {
+        fs.unlinkSync(tempThumbnailPath);
+      }
 
       // Register video in temporary storage (until blockchain integration)
       await this.videosService.registerWalrusVideo({
         cid: result.cid,
-        title: title || file.originalname,
+        title: title || videoFile.originalname,
         description: description || '',
         owner: owner || '0x0000000000000000000000000000000000000000',
         isShort: false,
+        thumbnailCid: thumbnailResult?.cid,
+        thumbnailUrl: thumbnailResult?.url,
       });
 
       return {
         success: true,
         cid: result.cid,
         url: result.url,
-        filename: file.originalname,
-        size: file.size,
+        filename: videoFile.originalname,
+        size: videoFile.size,
+        thumbnailCid: thumbnailResult?.cid,
+        thumbnailUrl: thumbnailResult?.url,
         message: 'Video uploaded successfully to Walrus',
         note: 'Video is registered temporarily. Call smart contract add_video to add to blockchain.',
       };
     } catch (error) {
       // Clean up temp file on error
-      if (fs.existsSync(tempPath)) {
-        fs.unlinkSync(tempPath);
+      if (fs.existsSync(tempVideoPath)) {
+        fs.unlinkSync(tempVideoPath);
+      }
+      if (tempThumbnailPath && fs.existsSync(tempThumbnailPath)) {
+        fs.unlinkSync(tempThumbnailPath);
       }
       throw error;
     }
@@ -224,6 +264,8 @@ export class VideosController {
   @ApiQuery({ name: 'description', required: false })
   @ApiQuery({ name: 'owner', required: false })
   @ApiQuery({ name: 'isShort', required: false, type: Boolean })
+  @ApiQuery({ name: 'thumbnailCid', required: false })
+  @ApiQuery({ name: 'thumbnailUrl', required: false })
   @ApiResponse({ status: 200, description: 'Video registered' })
   async registerVideo(
     @Query('cid') cid: string,
@@ -231,6 +273,8 @@ export class VideosController {
     @Query('description') description?: string,
     @Query('owner') owner?: string,
     @Query('isShort') isShort?: string,
+    @Query('thumbnailCid') thumbnailCid?: string,
+    @Query('thumbnailUrl') thumbnailUrl?: string,
   ) {
     const video = await this.videosService.registerWalrusVideo({
       cid,
@@ -238,6 +282,8 @@ export class VideosController {
       description: description || '',
       owner: owner || '0x0000000000000000000000000000000000000000',
       isShort: isShort === 'true',
+      thumbnailCid,
+      thumbnailUrl,
     });
     
     return {
@@ -255,6 +301,22 @@ export class VideosController {
     @Query('viewer') viewerAddress?: string,
   ) {
     return this.videosService.trackView(id, viewerAddress);
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: 'Remove a Walrus video (testing utility)' })
+  @ApiResponse({ status: 200, description: 'Video removed' })
+  @ApiResponse({ status: 404, description: 'Video not found' })
+  async deleteVideo(@Param('id') id: string) {
+    const removed = await this.videosService.removeWalrusVideo(id);
+    if (!removed) {
+      throw new NotFoundException('Video not found');
+    }
+    return {
+      success: true,
+      removed,
+      message: 'Video removed from Walrus cache',
+    };
   }
 
 }

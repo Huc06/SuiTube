@@ -50,36 +50,23 @@ export class VideosService implements OnModuleInit {
    * Get video by ID
    */
   async getVideoById(videoId: string) {
-    // First try blockchain
-    const blockchainVideo = await this.suigraphqlService.getVideoById(videoId);
-    if (blockchainVideo) {
-      return {
-        ...blockchainVideo,
-        videoUrl: blockchainVideo.cid ? this.walrusService.getFileUrl(blockchainVideo.cid) : null,
-      };
+    // Prefer Walrus-tracked videos to avoid unnecessary blockchain lookups
+    const walrusVideo = this.findWalrusVideo(videoId);
+    if (walrusVideo) {
+      return this.mapWalrusVideo(walrusVideo);
     }
 
-    // Fallback to Walrus videos (temporary for testing)
-    const walrusVideo = this.walrusVideos.find(v => v.id === videoId || v.cid === videoId);
-    if (walrusVideo) {
-      return {
-        id: walrusVideo.id,
-        suiObjectId: walrusVideo.id,
-        title: walrusVideo.title,
-        description: walrusVideo.description,
-        cid: walrusVideo.cid,
-        walrusHash: walrusVideo.cid,
-        owner: walrusVideo.owner,
-        isShort: walrusVideo.isShort,
-        category: undefined,
-        tags: [],
-        tips: walrusVideo.tips,
-        views: walrusVideo.views,
-        likes: walrusVideo.likes,
-        createdAt: walrusVideo.createdAt,
-        updatedAt: walrusVideo.createdAt,
-        videoUrl: this.walrusService.getFileUrl(walrusVideo.cid),
-      };
+    // Fallback to blockchain
+    try {
+      const blockchainVideo = await this.suigraphqlService.getVideoById(videoId);
+      if (blockchainVideo) {
+        return {
+          ...blockchainVideo,
+          videoUrl: blockchainVideo.cid ? this.walrusService.getFileUrl(blockchainVideo.cid) : null,
+        };
+      }
+    } catch (error) {
+      console.warn(`VideosService: Unable to fetch video ${videoId} from SuiGraphQL, falling back to Walrus cache`, error?.message || error);
     }
 
     return null;
@@ -89,7 +76,12 @@ export class VideosService implements OnModuleInit {
    * Get videos by owner
    */
   async getVideosByOwner(ownerAddress: string, limit: number = 50) {
-    const videos = await this.suigraphqlService.getVideosByOwner(ownerAddress, limit);
+    let videos: any[] = [];
+    try {
+      videos = await this.suigraphqlService.getVideosByOwner(ownerAddress, limit);
+    } catch (error) {
+      console.warn(`VideosService: Unable to fetch videos for owner ${ownerAddress} from SuiGraphQL`, error?.message || error);
+    }
     
     return videos
       .filter(video => video !== null)
@@ -113,6 +105,19 @@ export class VideosService implements OnModuleInit {
     },
   ) {
     return this.walrusService.uploadVideo(filePath, metadata);
+  }
+
+  /**
+   * Upload thumbnail image to Walrus
+   */
+  async uploadThumbnailToWalrus(
+    filePath: string,
+    options?: {
+      epochs?: number;
+      permanent?: boolean;
+    },
+  ) {
+    return this.walrusService.uploadThumbnail(filePath, 'thumbnail', options);
   }
 
   /**
@@ -190,30 +195,15 @@ export class VideosService implements OnModuleInit {
     likes: number;
     tips: number;
     isShort: boolean;
+    thumbnailCid?: string | null;
+    thumbnailUrl?: string | null;
   }> = [];
 
   async getVideosFromWalrus(limit: number = 50, offset: number = 0) {
     // Return tracked videos from Walrus uploads
     const videos = this.walrusVideos
       .slice(offset, offset + limit)
-      .map(video => ({
-        id: video.id,
-        suiObjectId: video.id,
-        title: video.title,
-        description: video.description,
-        cid: video.cid,
-        walrusHash: video.cid,
-        owner: video.owner,
-        isShort: video.isShort,
-        category: undefined,
-        tags: [],
-        tips: video.tips,
-        views: video.views,
-        likes: video.likes,
-        createdAt: video.createdAt,
-        updatedAt: video.createdAt,
-        videoUrl: this.walrusService.getFileUrl(video.cid),
-      }));
+      .map(video => this.mapWalrusVideo(video));
     
     return videos;
   }
@@ -228,6 +218,8 @@ export class VideosService implements OnModuleInit {
     description: string;
     owner: string;
     isShort?: boolean;
+    thumbnailCid?: string | null;
+    thumbnailUrl?: string | null;
   }) {
     const video = {
       id: params.cid, // Use CID as ID temporarily
@@ -240,11 +232,27 @@ export class VideosService implements OnModuleInit {
       likes: 0,
       tips: 0,
       isShort: params.isShort || false,
+      thumbnailCid: params.thumbnailCid || null,
+      thumbnailUrl: params.thumbnailUrl || (params.thumbnailCid ? this.walrusService.getFileUrl(params.thumbnailCid) : null),
     };
     
     this.walrusVideos.unshift(video); // Add to beginning
     this.saveWalrusVideos(); // Persist to file
-    return video;
+    return this.mapWalrusVideo(video);
+  }
+
+  /**
+   * Remove Walrus video (testing utility)
+   */
+  async removeWalrusVideo(videoId: string) {
+    const index = this.walrusVideos.findIndex(v => v.id === videoId || v.cid === videoId);
+    if (index === -1) {
+      return null;
+    }
+
+    const [removed] = this.walrusVideos.splice(index, 1);
+    this.saveWalrusVideos();
+    return this.mapWalrusVideo(removed);
   }
 
   /**
@@ -254,7 +262,14 @@ export class VideosService implements OnModuleInit {
     try {
       if (fs.existsSync(this.walrusVideosFile)) {
         const data = fs.readFileSync(this.walrusVideosFile, 'utf-8');
-        this.walrusVideos = JSON.parse(data);
+        const parsed = JSON.parse(data);
+        this.walrusVideos = Array.isArray(parsed)
+          ? parsed.map(video => ({
+              ...video,
+              thumbnailCid: video.thumbnailCid || null,
+              thumbnailUrl: video.thumbnailUrl || (video.thumbnailCid ? this.walrusService.getFileUrl(video.thumbnailCid) : null),
+            }))
+          : [];
         console.log(`Loaded ${this.walrusVideos.length} videos from file`);
       }
     } catch (error) {
@@ -272,6 +287,52 @@ export class VideosService implements OnModuleInit {
     } catch (error) {
       console.error('Error saving walrus videos:', error);
     }
+  }
+
+  /**
+   * Helper: find Walrus video by ID/CID
+   */
+  private findWalrusVideo(videoId: string) {
+    return this.walrusVideos.find(v => v.id === videoId || v.cid === videoId);
+  }
+
+  /**
+   * Helper: map Walrus video to API response shape
+   */
+  private mapWalrusVideo(video: {
+    id: string;
+    cid: string;
+    title: string;
+    description: string;
+    owner: string;
+    createdAt: number;
+    views: number;
+    likes: number;
+    tips: number;
+    isShort: boolean;
+    thumbnailCid?: string | null;
+    thumbnailUrl?: string | null;
+  }) {
+    return {
+      id: video.id,
+      suiObjectId: video.id,
+      title: video.title,
+      description: video.description,
+      cid: video.cid,
+      walrusHash: video.cid,
+      owner: video.owner,
+      isShort: video.isShort,
+      category: undefined,
+      tags: [],
+      tips: video.tips,
+      views: video.views,
+      likes: video.likes,
+      createdAt: video.createdAt,
+      updatedAt: video.createdAt,
+      videoUrl: this.walrusService.getFileUrl(video.cid),
+      thumbnailCid: video.thumbnailCid || null,
+      thumbnailUrl: video.thumbnailUrl || null,
+    };
   }
 }
 

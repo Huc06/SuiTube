@@ -16,7 +16,7 @@ export class SuiGraphQLService {
 
   constructor(private configService: ConfigService) {
     const graphqlUrl = this.configService.get<string>('SUI_GRAPHQL_URL') || 
-      'https://api.sui-testnet.walrus.space/graphql';
+      'https://sui-testnet.mystenlabs.com/graphql';
     
     this.graphqlClient = new GraphQLClient(graphqlUrl);
     const network = (this.configService.get<string>('SUI_NETWORK') || 'testnet') as 'mainnet' | 'testnet' | 'devnet' | 'localnet';
