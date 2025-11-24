@@ -1,6 +1,6 @@
 {
   "installCommand": "if [ -d frontend_suitube ]; then cd frontend_suitube; elif [ -d ../frontend_suitube ]; then cd ../frontend_suitube; else echo 'frontend_suitube directory not found'; exit 1; fi && pnpm install --frozen-lockfile",
-  "buildCommand": "if [ -d frontend_suitube ]; then cd frontend_suitube; elif [ -d ../frontend_suitube ]; then cd ../frontend_suitube; else echo 'frontend_suitube directory not found'; exit 1; fi && pnpm run build",
-  "outputDirectory": "frontend_suitube/dist"
+  "buildCommand": "if [ -d frontend_suitube ]; then cd frontend_suitube; elif [ -d ../frontend_suitube ]; then cd ../frontend_suitube; else echo 'frontend_suitube directory not found'; exit 1; fi && pnpm run build && rm -rf ../dist && cp -R dist ../dist",
+  "outputDirectory": "dist"
 }
 
