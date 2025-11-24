@@ -6,7 +6,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
 import { ArrowLeft, Play, Volume2, Maximize, ThumbsUp, Share2, Coins, AlertCircle, Trash2 } from "lucide-react";
 import { useLocation } from "wouter";
-import { mockUsers } from "@/lib/mock-data";
 import { useVideo, useTrackView, useDeleteVideo } from "@/hooks/use-videos";
 import { transformVideo } from "@/lib/api-transform";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -67,12 +66,11 @@ export default function VideoPlayer() {
   }
 
   const video = transformVideo(apiVideo);
-  const creator = mockUsers.find(u => u.walletAddress === apiVideo.owner) || mockUsers[0];
-
-  if (!creator) {
-    setLocation("/");
-    return null;
-  }
+  const creator = {
+    username: apiVideo.owner?.slice(0, 6) ?? "Unknown",
+    avatar: "",
+    subscribers: video?.views ?? 0,
+  };
 
   // Use CID (from API) instead of transformed ID for streaming
   // Backend expects CID, not numeric ID
@@ -293,33 +291,7 @@ export default function VideoPlayer() {
           <h3 className="text-xl font-bold text-gray-900 mb-4">Related Videos</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {/* Related videos - TODO: implement with API */}
-            {[].map((relatedVideo: any) => {
-              const relatedCreator = mockUsers.find(u => u.id === relatedVideo.creatorId);
-              return relatedCreator ? (
-                <Card key={relatedVideo.id} className="cursor-pointer hover:shadow-lg transition-shadow"
-                      onClick={() => setLocation(`/video/${relatedVideo.id}`)}>
-                  <div className="relative aspect-video bg-gray-900">
-                    <img
-                      src={relatedVideo.thumbnailUrl || ""}
-                      alt={relatedVideo.title}
-                      className="w-full h-full object-cover rounded-t-lg"
-                    />
-                    <div className="absolute bottom-2 right-2 bg-black bg-opacity-70 text-white text-xs px-2 py-1 rounded">
-                      {Math.floor((relatedVideo.duration || 0) / 60)}:{((relatedVideo.duration || 0) % 60).toString().padStart(2, '0')}
-                    </div>
-                  </div>
-                  <CardContent className="p-4">
-                    <h4 className="font-medium text-gray-900 line-clamp-2 mb-2">
-                      {relatedVideo.title}
-                    </h4>
-                    <p className="text-sm text-gray-600">{relatedCreator.username}</p>
-                    <p className="text-sm text-gray-500">
-                      {relatedVideo.views?.toLocaleString()} views
-                    </p>
-                  </CardContent>
-                </Card>
-              ) : null;
-            })}
+            {/* TODO: hook real related videos once backend supports it */}
           </div>
         </div>
       </div>
